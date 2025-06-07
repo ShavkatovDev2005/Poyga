@@ -1,15 +1,18 @@
+using System.Collections.Generic;
 using System.Net.Security;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
+using Unity.Services.Lobbies;
+using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
 
 public class relay : MonoBehaviour
 {
-    public TMP_InputField joinCodeInputField;
+    private Lobby hostLobby;
     // async void Start()
     // {
     //     await UnityServices.InitializeAsync();
@@ -30,6 +33,15 @@ public class relay : MonoBehaviour
 
             string joincode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
+            // JoinCode ni lobbyga yozamiz:
+            await LobbyService.Instance.UpdateLobbyAsync(hostLobby.Id, new UpdateLobbyOptions
+            {
+                Data = new Dictionary<string, DataObject>
+                {
+                    { "JoinCode", new DataObject(DataObject.VisibilityOptions.Member, joincode) }
+                }
+            });
+
             Debug.Log(joincode);
         }
         catch (RelayServiceException e)
@@ -38,11 +50,11 @@ public class relay : MonoBehaviour
         }
     }
 
-    public async void JoinRelay()
+    public async void JoinRelay(string joincode)
     {
         try
         {
-            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCodeInputField.text);
+            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joincode);
 
             Debug.Log("Joined relay with allocation ID: " + joinAllocation.AllocationId);
         }
