@@ -1,29 +1,17 @@
 using System.Collections.Generic;
-using System.Net.Security;
-using System.Threading.Tasks;
 using TMPro;
-using Unity.Services.Authentication;
-using Unity.Services.Core;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class relay : MonoBehaviour
 {
-    private Lobby hostLobby;
-    // async void Start()
-    // {
-    //     await UnityServices.InitializeAsync();
-
-    //     AuthenticationService.Instance.SignedIn += () =>
-    //     {
-    //         Debug.Log("Signed in as: " + AuthenticationService.Instance.PlayerId);
-    //     };
-    //     await AuthenticationService.Instance.SignInAnonymouslyAsync();
-    // }
-    
 
     public async void CreateRelay()
     {
@@ -33,15 +21,28 @@ public class relay : MonoBehaviour
 
             string joincode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
-            // JoinCode ni lobbyga yozamiz:
-            await LobbyService.Instance.UpdateLobbyAsync(hostLobby.Id, new UpdateLobbyOptions
-            {
-                Data = new Dictionary<string, DataObject>
-                {
-                    { "JoinCode", new DataObject(DataObject.VisibilityOptions.Member, joincode) }
-                }
-            });
+            RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
 
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
+
+            NetworkManager.Singleton.StartHost();
+
+            // JoinCode ni lobbyga yozamiz:
+            if (LobbyScript.hostLobby != null)
+            {
+                await LobbyService.Instance.UpdateLobbyAsync(LobbyScript.hostLobby.Id, new UpdateLobbyOptions
+                {
+                    Data = new Dictionary<string, DataObject>
+                    {
+                        { "JoinCode", new DataObject(DataObject.VisibilityOptions.Member, joincode) }
+                    }
+                });
+                Debug.Log("JoinCode written to lobby.");
+            }
+            else
+            {
+                Debug.LogWarning("hostLobby is null! Cannot update join code.");
+            }
             Debug.Log(joincode);
         }
         catch (RelayServiceException e)
@@ -50,12 +51,17 @@ public class relay : MonoBehaviour
         }
     }
 
+
     public async void JoinRelay(string joincode)
     {
         try
         {
             JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joincode);
 
+            RelayServerData relayServerData = new RelayServerData(joinAllocation, "dtls");
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
+
+            NetworkManager.Singleton.StartClient();
             Debug.Log("Joined relay with allocation ID: " + joinAllocation.AllocationId);
         }
         catch (RelayServiceException e)
@@ -63,4 +69,5 @@ public class relay : MonoBehaviour
             Debug.LogError("Failed to join relay: " + e.Message);
         }
     }
+
 }

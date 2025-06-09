@@ -11,40 +11,25 @@ using UnityEngine.UI;
 
 public class LobbyScript : MonoBehaviour
 {
-    [SerializeField] private relay relay;
+    [SerializeField] relay relay;
     [SerializeField] TextMeshProUGUI lobbyCodeText;
-    [SerializeField] string lobbyCode;
-    private Lobby hostLobby;
-    private Lobby joinedLobby;
-    private float LobbyUpdateTimer;
+    [SerializeField] TMP_InputField lobbyCode;
+    public static Lobby hostLobby;
+    public Lobby joinedLobby;
     private float heartbeartTimer;
-    [SerializeField] private string playerName;
+    public string playerName;
 
-    async void Start()
+    private float lobbyUpdateTimer = 1.1f;
+
+    void Start()
     {
-        playerName = "sirojiddin " + Random.Range(0, 1000);
+        playerName = "sirojiddin" + Random.Range(0, 1000);
 
-        await UnityServices.InitializeAsync();
 
-        AuthenticationService.Instance.SignedIn += () =>
-        {
-            Debug.Log("Signed in successfully! " + AuthenticationService.Instance.PlayerId);
-        };
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
-    }
-    private void Update()
-    {
-        HandleLobbyHeartBeat();
-        HandleLobbyPollForUpdates();
-    }
-
-    public async void Authenticate(string playerName)
-    {
-        this.playerName = playerName;
         InitializationOptions initializationOptions = new InitializationOptions();
         initializationOptions.SetProfile(playerName);
 
-        await UnityServices.InitializeAsync(initializationOptions);
+        UnityServices.InitializeAsync(initializationOptions);
 
         AuthenticationService.Instance.SignedIn += () =>
         {
@@ -52,7 +37,27 @@ public class LobbyScript : MonoBehaviour
             Debug.Log("Sigined in " + AuthenticationService.Instance.PlayerId);
         };
 
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        AuthenticationService.Instance.SignInAnonymouslyAsync();
+    }
+    private void Update()
+    {
+        HandleLobbyHeartBeat();
+        HandleLobbyPollForUpdates();
+    }
+    private async void HandleLobbyPollForUpdates()
+    {
+        if (joinedLobby != null)
+        {
+            lobbyUpdateTimer -= Time.deltaTime;
+            if (lobbyUpdateTimer < 0)
+            {
+                float lobbyUpdateTimerMax = 1.1f;
+                lobbyUpdateTimer = lobbyUpdateTimerMax;
+
+                Lobby lobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
+                joinedLobby = lobby;
+            }
+        }
     }
 
     private async void HandleLobbyHeartBeat()
@@ -66,38 +71,6 @@ public class LobbyScript : MonoBehaviour
                 heartbeartTimer = heartbeatTimerMax;
 
                 await LobbyService.Instance.SendHeartbeatPingAsync(hostLobby.Id);
-            }
-        }
-    }
-    private async void HandleLobbyPollForUpdates()
-    {
-        if (joinedLobby != null)
-        {
-            LobbyUpdateTimer -= Time.deltaTime;
-            if (LobbyUpdateTimer < 0)
-            {
-                
-                float LobbyUpdateTimerMax = 1.1f;
-                LobbyUpdateTimer = LobbyUpdateTimerMax;
-
-                try
-                {
-                    Lobby lobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
-                    joinedLobby = lobby;
-
-                    if (joinedLobby.Data.ContainsKey("StartGame") && 
-                        joinedLobby.Data["StartGame"].Value == "true" &&
-                        !NetworkManager.Singleton.IsClient) // faqat hali ulanmaganlar uchun
-                    {
-                        string joinCode = joinedLobby.Data["RelayCode"].Value;
-                        relay.JoinRelay(joinCode); // Join qilsin
-                        NetworkManager.Singleton.StartClient(); // yoki StartHost/StartClient
-                    }
-                }
-                catch (LobbyServiceException e)
-                {
-                    Debug.LogError("Lobby update failed: " + e.Message);
-                }
             }
         }
     }
@@ -174,10 +147,10 @@ public class LobbyScript : MonoBehaviour
             {
                 Player = GetPlayer()
             };
-            Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
+            Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode.text, joinLobbyByCodeOptions);
             joinedLobby = lobby;
 
-            Debug.Log("Joined lobby with code: " + lobbyCode);
+            Debug.Log("Joined lobby with code: " + lobbyCode.text);
 
             PrintPlayers(lobby);
         }

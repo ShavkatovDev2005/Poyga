@@ -4,25 +4,31 @@ using UnityEngine;
 public class PlayerNetwork : NetworkBehaviour
 {
     private NetworkVariable<MyCustomData> randomNumber = new NetworkVariable<MyCustomData>(
-        new MyCustomData{ _int = 1 , _bool = true},
+        new MyCustomData
+        {
+            _int = 1,
+            _bool = true
+        },
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-
+        
     public struct MyCustomData : INetworkSerializable
     {
         public int _int;
         public bool _bool;
+        public string _string;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
             serializer.SerializeValue(ref _int);
             serializer.SerializeValue(ref _bool);
+            serializer.SerializeValue(ref _string);
         }
     }
     public override void OnNetworkSpawn()
     {
         randomNumber.OnValueChanged += (MyCustomData previousValue, MyCustomData newValue) =>
         {
-            Debug.Log(OwnerClientId + " ; " + newValue._int + " ; " + newValue._bool);
+            Debug.Log(OwnerClientId + " ; " + newValue._int + " ; " + newValue._bool + " ; " + newValue._string);
         };
     }
     void Update()
@@ -30,11 +36,13 @@ public class PlayerNetwork : NetworkBehaviour
         if (!IsOwner) return;
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            randomNumber.Value = new MyCustomData
-            {
-                _int = Random.Range(0, 100),
-                _bool = false
-            };
+            ServerRPC();
+            // randomNumber.Value = new MyCustomData
+            // {
+            //     _int = Random.Range(0, 100),
+            //     _bool = false,
+            //     _string = "Hello from " + OwnerClientId
+            // };
         }
 
         Vector3 moveDir = Vector3.zero;
@@ -60,5 +68,11 @@ public class PlayerNetwork : NetworkBehaviour
         {
             transform.position += moveDir * 10 * Time.deltaTime;
         }
+    }
+
+    [ServerRpc]
+    private void ServerRPC()
+    {
+        Debug.Log("ServerRPC called by client: " + OwnerClientId);
     }
 }
