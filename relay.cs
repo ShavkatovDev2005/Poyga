@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TMPro;
@@ -13,70 +14,46 @@ using UnityEngine.SceneManagement;
 
 public class relay : MonoBehaviour
 {
-    public async void CreateRelay()//o'yinni boshlash
+    public async Task<String> CreateRelay()//o'yinni boshlash
     {
         try
         {
-            await SceneManager.LoadSceneAsync(1);
-
-            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(3);
-
-            RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(LobbyScript.maxPlayers);
 
             string joincode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
 
-            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(
-                allocation.RelayServer.IpV4,
-                (ushort)allocation.RelayServer.Port,
-                allocation.AllocationIdBytes,
-                allocation.Key,
-                allocation.ConnectionData
-            );
+            // Debug.Log(joincode);
 
-            Lobby lobby = await Lobbies.Instance.UpdateLobbyAsync(LobbyScript.joinedLobby.Id, new UpdateLobbyOptions
-            {
-                Data = new Dictionary<string, DataObject>
-                {
-                    { "KEY_START_GAME", new DataObject(DataObject.VisibilityOptions.Member, joincode) }
-                }
-            });
-            LobbyScript.joinedLobby = lobby;
-            // Debug.Log("Relay created with join code: " + LobbyScript.joinedLobby.Data["KEY_START_GAME"].Value);
+            RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
+
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
 
             NetworkManager.Singleton.StartHost();
-            // Debug.Log(joincode);
+
+            return joincode;
         }
         catch (RelayServiceException e)
         {
             Debug.LogError("Failed to create relay: " + e.Message);
+            return null;
         }
     }
-    public async Task<bool> JoinRelay()
+
+    public async void JoinRelay(string joinCode)//o'yinga qo'shilish
     {
-        JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(LobbyScript.joinedLobby.Data["KEY_START_GAME"].Value);
+        try
+        {
+            JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
 
-        NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
-        return !string.IsNullOrEmpty(LobbyScript.joinedLobby.Data["KEY_START_GAME"].Value) && NetworkManager.Singleton.StartClient();
+            RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
+
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
+
+            NetworkManager.Singleton.StartClient();
+        }
+        catch (RelayServiceException e)
+        {
+            Debug.LogError("Failed to join relay: " + e.Message);
+        }
     }
-
-    // public async void JoinRelay()
-    // {
-    //     try
-    //     {
-    //         await SceneManager.LoadSceneAsync(1);
-
-    //         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(LobbyScript.joinedLobby.Data["KEY_START_GAME"].Value);
-
-    //         RelayServerData relayServerData = new RelayServerData(allocation, "dtls");
-
-    //         NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(relayServerData);
-
-    //         NetworkManager.Singleton.StartClient();
-    //     }
-    //     catch (RelayServiceException e)
-    //     {
-    //         Debug.LogError("Failed to join relay: " + e.Message);
-    //     }
-    // }
-
 }

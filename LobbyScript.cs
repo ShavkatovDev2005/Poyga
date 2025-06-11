@@ -14,9 +14,15 @@ using UnityEngine.UI;
 
 public class LobbyScript : MonoBehaviour
 {
-    [SerializeField] TextMeshProUGUI lobbyCodeText;
     [SerializeField] TMP_InputField lobbyCode;
+    [SerializeField] TextMeshProUGUI lobbyCodeTEXT;
     [SerializeField] relay relay;
+
+    public static int maxPlayers;
+    public static string lobbyName;
+    public static string GameMode;
+    public static string Map;
+
     public static Lobby hostLobby;
     public static Lobby joinedLobby;
     private float heartbeartTimer;
@@ -27,6 +33,10 @@ public class LobbyScript : MonoBehaviour
     void Start()
     {
         playerName = "sirojiddin" + UnityEngine.Random.Range(0, 1000);
+        lobbyName = "MyLobby";
+        maxPlayers = 4;
+        GameMode = "Deathmatch";
+        Map = "Map1";
 
 
         InitializationOptions initializationOptions = new InitializationOptions();
@@ -41,40 +51,88 @@ public class LobbyScript : MonoBehaviour
         };
 
         AuthenticationService.Instance.SignInAnonymouslyAsync();
+    }
+    public async void StartGame()
+    {
+        if (IsLobbyHost())
+        {
+            try
+            {
+                Debug.Log("Start Game");
 
-        // Lobby güncellemelerini başlat
+                SceneManager.LoadScene(1);
+
+                string relayCode = await relay.CreateRelay();
+
+                Lobby lobby = await LobbyService.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
+                {
+                    Data = new Dictionary<string, DataObject>
+                    {
+                        { "KEY_START_GAME", new DataObject(DataObject.VisibilityOptions.Member, relayCode) }
+                    }
+                });
+
+                joinedLobby = lobby;
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogError($"Failed to start game: {e.Message}");
+            }
+        }
+    }
+
+    private async void HandleLobbyPooling()
+    {
         if (joinedLobby != null)
         {
-            StartCoroutine(PollLobbyUpdates());
+            lobbyUpdateTimer -= Time.deltaTime;
+            if (lobbyUpdateTimer < 0)
+            {
+                lobbyUpdateTimer = 1.1f;
+
+                joinedLobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
+
+                // OnJoinedLobbyUpdate?.Invoke(this, new LobbyEventArgs { Lobby = joinedLobby });
+
+                // if (!IsPlayerInLobby())
+                // {
+                //     OnKickedFromLobby?.Invoke(this, LobbyEventArgs.Empty);
+
+                //     joinedLobby = null;
+                // }
+
+                if (joinedLobby.Data["KEY_START_GAME"].Value != "0")
+                {
+                    //start game
+                    if (!IsLobbyHost())
+                    {
+                        await SceneManager.LoadSceneAsync(1);
+
+                        relay.JoinRelay(joinedLobby.Data["KEY_START_GAME"].Value);
+                    }
+                    joinedLobby = null;
+                }
+
+                // OnGameStarted?.Invoke(this, LobbyEventArgs.Empty);
+            }
         }
+    }
+    bool IsLobbyHost()
+    {
+        if (hostLobby != null)
+        {
+            return hostLobby.HostId == AuthenticationService.Instance.PlayerId;
+        }
+        else if (joinedLobby != null)
+        {
+            return joinedLobby.HostId == AuthenticationService.Instance.PlayerId;
+        }
+        return false;
     }
     private void Update()
     {
+        HandleLobbyPooling();
         HandleLobbyHeartBeat();
-    }
-    private IEnumerator PollLobbyUpdates()
-    {
-        while (true)
-        {
-            if (joinedLobby != null)
-            {
-                var lobbyTask = LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
-                while (!lobbyTask.IsCompleted)
-                    yield return null;
-
-                if (lobbyTask.IsCompletedSuccessfully)
-                {
-                    joinedLobby = lobbyTask.Result;
-                    PrintPlayers(joinedLobby);  // istersen oyuncu listesini burada güncelleyebilirsin
-                }
-                else if (lobbyTask.IsFaulted)
-                {
-                    Debug.LogError("Lobby update failed: " + lobbyTask.Exception);
-                }
-            }
-
-            yield return new WaitForSeconds(1.1f); // İstekler arası bekleme süresi
-        }
     }
 
     private async void HandleLobbyHeartBeat()
@@ -88,40 +146,21 @@ public class LobbyScript : MonoBehaviour
                 heartbeartTimer = heartbeatTimerMax;
 
                 await LobbyService.Instance.SendHeartbeatPingAsync(hostLobby.Id);
-
-                if (joinedLobby.Data["KEY_START_GAME"].Value != "0")
-                {
-                    if (!IsHost())
-                    {
-                        Debug.Log("Joining relay...");
-                        await relay.JoinRelay();
-                    }
-
-                    joinedLobby = null;
-
-                    // OnGameStarted?.Invoke(this, EventArgs.Empty);
-                }
             }
         }
-    }
-    bool IsHost()
-    {
-        return joinedLobby != null && joinedLobby.HostId == AuthenticationService.Instance.PlayerId;
     }
     public async void createLobby()
     {
         try
         {
-            string lobbyName = "MyLobby";
-            int maxPlayers = 4;
             CreateLobbyOptions createLobbyOptions = new CreateLobbyOptions
             {
                 IsPrivate = false,
                 Player = GetPlayer(),
                 Data = new Dictionary<string, DataObject>
                 {
-                    { "GameMode", new DataObject(DataObject.VisibilityOptions.Public, "Marraga yet") },//DataObject.IndexOptions.S1 nima qiladi?
-                    { "Map", new DataObject(DataObject.VisibilityOptions.Public, "1-xarita") },
+                    { "GameMode", new DataObject(DataObject.VisibilityOptions.Public, GameMode ) },//DataObject.IndexOptions.S1 nima qiladi?
+                    { "Map", new DataObject(DataObject.VisibilityOptions.Public, Map ) },
                     { "KEY_START_GAME", new DataObject(DataObject.VisibilityOptions.Member, "0") }
                 }
             };
@@ -130,7 +169,7 @@ public class LobbyScript : MonoBehaviour
 
             hostLobby = lobby;
             joinedLobby = lobby;
-            lobbyCodeText.text = "Xona kodi: " + lobby.LobbyCode;
+            lobbyCodeTEXT.text = "XONA KODI: " + lobby.LobbyCode;
 
             PrintPlayers(hostLobby);
 
@@ -280,7 +319,6 @@ public class LobbyScript : MonoBehaviour
                 await LobbyService.Instance.RemovePlayerAsync(joinedLobby.Id, AuthenticationService.Instance.PlayerId);
                 joinedLobby = null;
                 hostLobby = null;
-                lobbyCodeText.text = "Left the lobby";
                 Debug.Log("Left the lobby successfully.");
             }
         }
@@ -336,5 +374,10 @@ public class LobbyScript : MonoBehaviour
         {
             Debug.LogError($"Failed to delete lobby: {e.Message}");
         }
+    }
+
+    public void changeLobbyname(TMP_InputField inputField)
+    {
+        lobbyName = inputField.text;
     }
 }

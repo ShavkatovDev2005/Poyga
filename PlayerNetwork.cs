@@ -7,9 +7,11 @@ public class PlayerNetwork : NetworkBehaviour
         new MyCustomData
         {
             _int = 1,
-            _bool = true
+            _bool = true,
+            _string = ""
         },
-        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner
+    );
         
     public struct MyCustomData : INetworkSerializable
     {
