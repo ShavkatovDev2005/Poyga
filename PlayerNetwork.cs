@@ -1,4 +1,5 @@
 using SimpleInputNamespace;
+using TMPro;
 using Unity.Netcode;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -9,8 +10,7 @@ public class PlayerNetwork : NetworkBehaviour
     private NetworkVariable<MyCustomData> randomNumber = new NetworkVariable<MyCustomData>(
         new MyCustomData
         {
-            _int = 1,
-            _bool = true,
+            _name = "",
             _string = ""
         },
         NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner
@@ -18,14 +18,12 @@ public class PlayerNetwork : NetworkBehaviour
 
     public struct MyCustomData : INetworkSerializable
     {
-        public int _int;
-        public bool _bool;
+        public string _name;
         public string _string;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
-            serializer.SerializeValue(ref _int);
-            serializer.SerializeValue(ref _bool);
+            serializer.SerializeValue(ref _name);
             serializer.SerializeValue(ref _string);
         }
     }
@@ -33,7 +31,8 @@ public class PlayerNetwork : NetworkBehaviour
     {
         randomNumber.OnValueChanged += (MyCustomData previousValue, MyCustomData newValue) =>
         {
-            Debug.Log(OwnerClientId + " ; " + newValue._int + " ; " + newValue._bool + " ; " + newValue._string);
+            text.text = newValue._name + " :  " + newValue._string;
+            Debug.Log(newValue._name + " :  " + newValue._string);
         };
     }
 
@@ -42,6 +41,7 @@ public class PlayerNetwork : NetworkBehaviour
     {
         Debug.Log("ServerRPC called by client: " + OwnerClientId);
     }
+    [SerializeField] TextMeshProUGUI text;
     public InputActionReference move;
     public SteeringWheel gas;
     public AxisInputUIArrows rul;
@@ -58,8 +58,12 @@ public class PlayerNetwork : NetworkBehaviour
     public GameObject keyboard,mobile;
     public GameObject mobileUI;
     bool UseKeyboard;
+    public Vector3 centerOfmass;
+    Vector3 lastPos;
+    Quaternion lastRot;
     void Start()
     {
+        GetComponent<Rigidbody>().centerOfMass = centerOfmass; // defoult(0.00, 0.92, -0.18)
         if (!IsOwner)
         {
             _camera.enabled = false;
@@ -70,6 +74,7 @@ public class PlayerNetwork : NetworkBehaviour
             _camera.enabled = true;
             _camera.gameObject.SetActive(true);
         }
+        OnNetworkSpawn();
         ChangeKeyboard();
     }
 
@@ -86,19 +91,20 @@ public class PlayerNetwork : NetworkBehaviour
         applyBreak();
 
         inputVector = move.action.ReadValue<Vector2>();
-
-        // if (Input.GetKeyDown(KeyCode.Space))
-        // {
-        //     ServerRPC();
-        //     // randomNumber.Value = new MyCustomData
-        //     // {
-        //     //     _int = Random.Range(0, 100),
-        //     //     _bool = false,
-        //     //     _string = "Hello from " + OwnerClientId
-        //     // };
-        // }
     }
-
+    public void inputValueChanged(TMP_InputField input)
+    {
+        randomNumber.Value = new MyCustomData
+        {
+            _name = OwnerClientId.ToString(),
+            _string = input.text
+        };
+    }
+    public void onglash()
+    {
+        transform.rotation = lastRot;
+        transform.position = lastPos;
+    }
     void ApplySteering()
     {
         float angle = steeringInput * 45;
@@ -145,12 +151,32 @@ public class PlayerNetwork : NetworkBehaviour
         {
             if (gasInsput < 0)
             {
-                breakeInput = Mathf.Abs(gasInsput);
+                // breakeInput = Mathf.Abs(gasInsput);
                 gasInsput = 0;
             }
+            else
+            {
+                breakeInput = 0;
+            }
         }
-        else{
+        else
+        {
             breakeInput = 0;
+        }
+    }
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.tag == "Respawn")
+        {
+            transform.position = lastPos;
+            transform.rotation = lastRot;
+            // rb.
+        }
+        else if (other.gameObject.tag == "updatePos")
+        {
+            lastPos = transform.position;
+            lastRot = transform.rotation;
+            Destroy(other.gameObject);
         }
     }
 

@@ -14,7 +14,6 @@ using UnityEngine.UI;
 
 public class LobbyScript : MonoBehaviour
 {
-    [SerializeField] TMP_InputField lobbyCode;
     [SerializeField] TextMeshProUGUI lobbyCodeTEXT;
     [SerializeField] relay relay;
 
@@ -22,6 +21,8 @@ public class LobbyScript : MonoBehaviour
     public static string lobbyName;
     public static string GameMode;
     public static string Map;
+    public static string Password;
+    public static bool lobbyIsPrivate;
 
     public static Lobby hostLobby;
     public static Lobby joinedLobby;
@@ -37,6 +38,7 @@ public class LobbyScript : MonoBehaviour
         maxPlayers = 4;
         GameMode = "Deathmatch";
         Map = "Map1";
+        lobbyIsPrivate = true;
 
 
         InitializationOptions initializationOptions = new InitializationOptions();
@@ -155,7 +157,7 @@ public class LobbyScript : MonoBehaviour
         {
             CreateLobbyOptions createLobbyOptions = new CreateLobbyOptions
             {
-                IsPrivate = false,
+                IsPrivate = lobbyIsPrivate,
                 Player = GetPlayer(),
                 Data = new Dictionary<string, DataObject>
                 {
@@ -181,7 +183,7 @@ public class LobbyScript : MonoBehaviour
         }
     }
 
-    public async void ListLobbies()
+    public async Task<QueryResponse> ListLobbies()
     {
         try
         {
@@ -200,20 +202,22 @@ public class LobbyScript : MonoBehaviour
 
             QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync(queryLobbiesOptions);
 
-            Debug.Log($"Found {response.Results.Count} lobbies:");
-            foreach (var lobby in response.Results)
-            {
-                Debug.Log($"Lobby Name: {lobby.Name}, ID: {lobby.Id}, Players: {lobby.Players.Count}/{lobby.MaxPlayers}" + " gamemode=" + lobby.Data["GameMode"].Value + " map=" + lobby.Data["Map"].Value);
-            }
+            // Debug.Log($"Found {response.Results.Count} lobbies:");
+            // foreach (var lobby in response.Results)
+            // {
+            //     Debug.Log($"Lobby Name: {lobby.Name}, ID: {lobby.Id}, Players: {lobby.Players.Count}/{lobby.MaxPlayers}" + " gamemode=" + lobby.Data["GameMode"].Value + " map=" + lobby.Data["Map"].Value);
+            // }
+            return response;
         }
         catch (LobbyServiceException e)
         {
             Debug.LogError($"Failed to list lobbies: {e.Message}");
+            return null;
         }
     }
 
 
-    public async void JoinLobbyByCode()
+    public async void JoinLobbyByCode(string lobbyCode)
     {
         try
         {
@@ -221,12 +225,26 @@ public class LobbyScript : MonoBehaviour
             {
                 Player = GetPlayer()
             };
-            Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode.text, joinLobbyByCodeOptions);
+            Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
             joinedLobby = lobby;
 
-            Debug.Log("Joined lobby with code: " + lobbyCode.text);
+            Debug.Log("Joined lobby with code: " + lobbyCode);
 
             PrintPlayers(lobby);
+        }
+        catch (LobbyServiceException e)
+        {
+            Debug.LogError($"Failed to list lobbies: {e.Message}");
+        }
+    }
+    public async void JoinLobbyById(string lobbyId)
+    {
+        try
+        {
+            Lobby lobby = await Lobbies.Instance.JoinLobbyByIdAsync(lobbyId);
+            joinedLobby = lobby;
+
+            Debug.Log("Joined lobby with code: " + lobbyId);
         }
         catch (LobbyServiceException e)
         {
@@ -379,5 +397,9 @@ public class LobbyScript : MonoBehaviour
     public void changeLobbyname(TMP_InputField inputField)
     {
         lobbyName = inputField.text;
+    }
+    public void enterThePassword(TMP_InputField inputField)
+    {
+        Password = inputField.text;
     }
 }
