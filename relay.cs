@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 
 public class relay : MonoBehaviour
 {
-    public async Task<String> CreateRelay()//o'yinni boshlash
+    public async Task<String> CreateRelayAndStartGame()//o'yinni boshlash
     {
         try
         {
@@ -39,7 +39,7 @@ public class relay : MonoBehaviour
         }
     }
 
-    public async void JoinRelay(string joinCode)//o'yinga qo'shilish
+    public async void JoinRelayAndStartGame(string joinCode)//o'yinga qo'shilish
     {
         try
         {

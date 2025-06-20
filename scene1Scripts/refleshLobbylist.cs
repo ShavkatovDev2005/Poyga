@@ -9,10 +9,16 @@ using System.Threading.Tasks;
 
 public class refleshLobbylist : MonoBehaviour
 {
+    public static refleshLobbylist Instance;
+    public GameObject lobbyMenuObj;
     public GameObject lobbyPrefab, content;
     public LobbyScript lobbyScript;
     private List<GameObject> lobbyList;
     [SerializeField] TMP_InputField lobbyCode;
+    void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
@@ -32,8 +38,8 @@ public class refleshLobbylist : MonoBehaviour
             Destroy(lobbyList[i]);
         }
         lobbyList.Clear();
-        
-        if (lobbyList.Count == 0) return;
+
+        if (response.Results.Count == 0) return;
 
         for (int i = 0; i < response.Results.Count; i++)
         {
@@ -76,5 +82,10 @@ public class refleshLobbylist : MonoBehaviour
     async Task<QueryResponse> getLobbyList()
     {
         return await LobbyService.Instance.QueryLobbiesAsync();
+    }
+    public void joinedLobby()
+    {
+        gameObject.SetActive(false);
+        lobbyMenuObj.SetActive(true);
     }
 }

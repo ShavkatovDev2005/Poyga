@@ -21,7 +21,7 @@ public class offlinePlayer : MonoBehaviour
     public float gasInsput,steeringInput,breakeInput;
     public GameObject keyboard,mobile;
     public GameObject mobileUI;
-    bool UseKeyboard;
+    bool UseKeyboard = true;
     public Vector3 centerOfmass;
     Vector3 lastPos;
     Quaternion lastRot;
@@ -51,6 +51,7 @@ public class offlinePlayer : MonoBehaviour
     {
         transform.rotation = lastRot;
         transform.position = lastPos;
+        rb.linearVelocity = Vector2.zero;
     }
     void ApplySteering()
     {

@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TMPro;
@@ -14,6 +13,7 @@ using UnityEngine.UI;
 
 public class LobbyScript : MonoBehaviour
 {
+    [SerializeField] GameObject[] playerPrifabs;
     [SerializeField] TextMeshProUGUI lobbyCodeTEXT;
     [SerializeField] relay relay;
 
@@ -62,9 +62,11 @@ public class LobbyScript : MonoBehaviour
             {
                 Debug.Log("Start Game");
 
-                SceneManager.LoadScene(1);
+                // await SceneManager.LoadSceneAsync(1);
 
-                string relayCode = await relay.CreateRelay();
+                string relayCode = await relay.CreateRelayAndStartGame();
+                NetworkManager.Singleton.SceneManager.LoadScene( "map", LoadSceneMode.Single );
+
 
                 Lobby lobby = await LobbyService.Instance.UpdateLobbyAsync(joinedLobby.Id, new UpdateLobbyOptions
                 {
@@ -94,30 +96,40 @@ public class LobbyScript : MonoBehaviour
 
                 joinedLobby = await LobbyService.Instance.GetLobbyAsync(joinedLobby.Id);
 
-                // OnJoinedLobbyUpdate?.Invoke(this, new LobbyEventArgs { Lobby = joinedLobby });
-
-                // if (!IsPlayerInLobby())
-                // {
-                //     OnKickedFromLobby?.Invoke(this, LobbyEventArgs.Empty);
-
-                //     joinedLobby = null;
-                // }
+                if (!IsPlayerInLobby(AuthenticationService.Instance.PlayerId))
+                {
+                    joinedLobby = null;
+                    await SceneManager.LoadSceneAsync(0);
+                }
 
                 if (joinedLobby.Data["KEY_START_GAME"].Value != "0")
                 {
                     //start game
                     if (!IsLobbyHost())
                     {
-                        await SceneManager.LoadSceneAsync(1);
+                        // await SceneManager.LoadSceneAsync(1);
 
-                        relay.JoinRelay(joinedLobby.Data["KEY_START_GAME"].Value);
+                        relay.JoinRelayAndStartGame(joinedLobby.Data["KEY_START_GAME"].Value);
+                        joinedLobby = null;
                     }
-                    joinedLobby = null;
                 }
 
                 // OnGameStarted?.Invoke(this, LobbyEventArgs.Empty);
             }
         }
+    }
+    public bool IsPlayerInLobby(string playerId)
+    {
+        if (joinedLobby == null || joinedLobby.Players == null)
+            return false;
+
+        foreach (var player in joinedLobby.Players)
+        {
+            if (player.Id == playerId)
+                return true;
+        }
+
+        return false;
     }
     bool IsLobbyHost()
     {
@@ -161,7 +173,7 @@ public class LobbyScript : MonoBehaviour
                 Player = GetPlayer(),
                 Data = new Dictionary<string, DataObject>
                 {
-                    { "GameMode", new DataObject(DataObject.VisibilityOptions.Public, GameMode ) },//DataObject.IndexOptions.S1 nima qiladi?
+                    { "GameMode", new DataObject(DataObject.VisibilityOptions.Public, GameMode ) },
                     { "Map", new DataObject(DataObject.VisibilityOptions.Public, Map ) },
                     { "KEY_START_GAME", new DataObject(DataObject.VisibilityOptions.Member, "0") }
                 }
@@ -228,6 +240,8 @@ public class LobbyScript : MonoBehaviour
             Lobby lobby = await Lobbies.Instance.JoinLobbyByCodeAsync(lobbyCode, joinLobbyByCodeOptions);
             joinedLobby = lobby;
 
+            refleshLobbylist.Instance.joinedLobby();
+
             Debug.Log("Joined lobby with code: " + lobbyCode);
 
             PrintPlayers(lobby);
@@ -241,8 +255,14 @@ public class LobbyScript : MonoBehaviour
     {
         try
         {
-            Lobby lobby = await Lobbies.Instance.JoinLobbyByIdAsync(lobbyId);
+            JoinLobbyByIdOptions joinLobbyByCodeOptions = new JoinLobbyByIdOptions
+            {
+                Player = GetPlayer()
+            };
+            Lobby lobby = await Lobbies.Instance.JoinLobbyByIdAsync(lobbyId, joinLobbyByCodeOptions);
             joinedLobby = lobby;
+
+            refleshLobbylist.Instance.joinedLobby();
 
             Debug.Log("Joined lobby with code: " + lobbyId);
         }
@@ -258,7 +278,7 @@ public class LobbyScript : MonoBehaviour
         {
             Data = new Dictionary<string, PlayerDataObject>
             {
-                {"Playername", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, playerName)}
+                {"Playername", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, playerName)}
             }
         };
     }
@@ -306,7 +326,7 @@ public class LobbyScript : MonoBehaviour
             {
                 Data = new Dictionary<string, PlayerDataObject>
                 {
-                    {"Playername", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Member, playerName)}
+                    {"Playername", new PlayerDataObject(PlayerDataObject.VisibilityOptions.Public, playerName)}
                 }
             });
             Debug.Log($"Player name updated to: {playerName}");
@@ -402,4 +422,10 @@ public class LobbyScript : MonoBehaviour
     {
         Password = inputField.text;
     }
+
+    public bool host()
+    {
+        return hostLobby != null;
+    }
+
 }

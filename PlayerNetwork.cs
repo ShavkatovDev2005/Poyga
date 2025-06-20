@@ -54,8 +54,8 @@ public class PlayerNetwork : NetworkBehaviour
     public float speed;
     public Camera _camera;
     Vector2 inputVector;
-    public float gasInsput,steeringInput,breakeInput;
-    public GameObject keyboard,mobile;
+    public float gasInsput, steeringInput, breakeInput;
+    public GameObject keyboard, mobile;
     public GameObject mobileUI;
     bool UseKeyboard;
     public Vector3 centerOfmass;
@@ -104,6 +104,8 @@ public class PlayerNetwork : NetworkBehaviour
     {
         transform.rotation = lastRot;
         transform.position = lastPos;
+        rb.linearVelocity = Vector2.zero;
+        rb.angularVelocity = Vector2.zero;
     }
     void ApplySteering()
     {
@@ -146,7 +148,7 @@ public class PlayerNetwork : NetworkBehaviour
             steeringInput = gas.Value;
         }
 
-        slipAngle = Vector3.Angle(transform.forward, rb.linearVelocity-transform.forward);
+        slipAngle = Vector3.Angle(transform.forward, rb.linearVelocity - transform.forward);
         if (slipAngle < 120)
         {
             if (gasInsput < 0)
@@ -168,9 +170,7 @@ public class PlayerNetwork : NetworkBehaviour
     {
         if (other.gameObject.tag == "Respawn")
         {
-            transform.position = lastPos;
-            transform.rotation = lastRot;
-            // rb.
+            onglash();
         }
         else if (other.gameObject.tag == "updatePos")
         {
@@ -204,6 +204,7 @@ public class PlayerNetwork : NetworkBehaviour
         mesh.transform.rotation = rotation;
     }
 }
+
 
 
 //------------------------------------------------------------------------------------------------------------
